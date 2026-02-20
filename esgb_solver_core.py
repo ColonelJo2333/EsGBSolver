@@ -181,7 +181,8 @@ class EsGBSolution:
     """
     def __init__(self, rh, alpha, beta, phi_h, M_ADM, Q,
                  r, gtt, grr, phi,
-                 converged, residual, N):
+                 converged, residual, N,
+                 x_nodes, D_mat, ht_nodes, Gt_nodes):
         self.rh        = rh
         self.alpha     = alpha
         self.beta      = beta
@@ -204,6 +205,14 @@ class EsGBSolution:
             f'$\\alpha={alpha},\\,\\beta={beta}$'
             f'  ($\\phi_h={phi_h:.3f}$)'
         )
+        # ── 谱插值数据（用于高精度任意 r 点求值）────────────────────
+        # 坐标映射：x = 1 - 2*rh/r，x ∈ [-1, 1]，x=-1 对应视界
+        # gtt(r) = ht(x) * (1+x)/2，grr(r) = Gt(x) * 2/(1+x)
+        self._x_nodes   = x_nodes            # Chebyshev GL 节点
+        self._ht_nodes  = ht_nodes           # ht 在节点处的值
+        self._Gt_nodes  = Gt_nodes           # Gt 在节点处的值
+        self._dht_nodes = D_mat @ ht_nodes   # dht/dx（谱微分）
+        self._dGt_nodes = D_mat @ Gt_nodes   # dGt/dx（谱微分）
 
     def __repr__(self):
         status = 'converged' if self.converged else 'NOT converged'
@@ -212,6 +221,58 @@ class EsGBSolution:
                 f'phi_h={self.phi_h:.4f}, '
                 f'M={self.M_ADM:.4f}, Q={self.Q:.4f}, '
                 f'||R||={self.residual:.2e})')
+
+    # ── 谱插值公开方法（指数精度，可在任意 r > rh 点求值）───────────
+    def _spec_eval(self, r, f_nodes):
+        """内部：将 r 映射到 x，用重心插值求 f(x)。"""
+        r_a  = np.atleast_1d(np.asarray(r, dtype=float))
+        x_a  = np.clip(1. - 2. * self.rh / r_a,
+                       self._x_nodes[-1], self._x_nodes[0])
+        return bary_interp(self._x_nodes, f_nodes, x_a)
+
+    def gtt_at(self, r):
+        """gtt(r) = ht(x)·(1+x)/2，谱精度插值，支持标量或数组。"""
+        scalar = np.isscalar(r)
+        r_a    = np.atleast_1d(np.asarray(r, dtype=float))
+        x_a    = np.clip(1. - 2. * self.rh / r_a,
+                         self._x_nodes[-1], self._x_nodes[0])
+        ht     = bary_interp(self._x_nodes, self._ht_nodes, x_a)
+        out    = ht * (1. + x_a) / 2.
+        return float(out[0]) if scalar else out
+
+    def grr_at(self, r):
+        """grr(r) = Gt(x)·2/(1+x)，谱精度插值，支持标量或数组。"""
+        scalar = np.isscalar(r)
+        r_a    = np.atleast_1d(np.asarray(r, dtype=float))
+        x_a    = np.clip(1. - 2. * self.rh / r_a,
+                         self._x_nodes[-1], self._x_nodes[0])
+        Gt     = bary_interp(self._x_nodes, self._Gt_nodes, x_a)
+        out    = Gt * 2. / (1. + x_a)
+        return float(out[0]) if scalar else out
+
+    def dgtt_dr(self, r):
+        """d(gtt)/dr，链式法则 + 谱微分，支持标量或数组。"""
+        scalar = np.isscalar(r)
+        r_a    = np.atleast_1d(np.asarray(r, dtype=float))
+        x_a    = np.clip(1. - 2. * self.rh / r_a,
+                         self._x_nodes[-1], self._x_nodes[0])
+        ht     = bary_interp(self._x_nodes, self._ht_nodes,  x_a)
+        dht    = bary_interp(self._x_nodes, self._dht_nodes, x_a)
+        dxdr   = 2. * self.rh / r_a ** 2          # dx/dr = 2rh/r²
+        out    = (dht * (1. + x_a) / 2. + ht / 2.) * dxdr
+        return float(out[0]) if scalar else out
+
+    def dgrr_dr(self, r):
+        """d(grr)/dr，链式法则 + 谱微分，支持标量或数组。"""
+        scalar = np.isscalar(r)
+        r_a    = np.atleast_1d(np.asarray(r, dtype=float))
+        x_a    = np.clip(1. - 2. * self.rh / r_a,
+                         self._x_nodes[-1], self._x_nodes[0])
+        Gt     = bary_interp(self._x_nodes, self._Gt_nodes,  x_a)
+        dGt    = bary_interp(self._x_nodes, self._dGt_nodes, x_a)
+        dxdr   = 2. * self.rh / r_a ** 2
+        out    = (dGt * 2. / (1. + x_a) - Gt * 2. / (1. + x_a) ** 2) * dxdr
+        return float(out[0]) if scalar else out
 
 
 # ── 主求解接口 ────────────────────────────────────────────────────────────────
@@ -276,7 +337,8 @@ def solve(rh=1.0, alpha=0.125, beta=-0.5, phi_h_init=0.55, N=13,
 
     return EsGBSolution(rh, alpha, beta, phi_h, M_ADM, Q,
                         r_fine, gtt, grr, phi_f,
-                        converged, residual, N)
+                        converged, residual, N,
+                        x_nd, D, u_sol[:M], u_sol[M:2*M])
 
 
 # ── φ_h 允许范围分析 ──────────────────────────────────────────────────────────
