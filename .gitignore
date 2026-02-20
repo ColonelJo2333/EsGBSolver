@@ -12,3 +12,13 @@ __pycache__/
 # IDE
 .vscode/
 .idea/
+
+# 图片与PDF
+*.png
+*.jpg
+*.jpeg
+*.pdf
+
+# 测试文件
+_test_*.py
+test_*.py
