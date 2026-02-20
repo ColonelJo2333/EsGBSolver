@@ -1,0 +1,1 @@
+-2*alpha*dphix*phival*(1 + 2*beta*pow(phival,2))*pow(-1 + x,4)*(3 - 2*Gt + 3*x)*(dhtx + ht + dhtx*x) + Gt*pow(rh,2)*(-4*dhtx*(-1 + pow(x,2)) + ht*(8 - 8*Gt - pow(dphix,2)*pow(-1 + x,2)*(1 + x)))
