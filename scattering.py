@@ -254,9 +254,9 @@ def compute_scattering(A, B, dA, dB, omega, lmax, r_horizon,
     for l_idx in range(n_l):
         P_mat[l_idx] = eval_legendre(l_idx, cos_theta)
 
-    # 散射振幅 f(θ) = 1/(1-cosθ)^n · 1/(2iω) · Σ_l a_l · P_l(cosθ)
+    # 散射振幅 f(θ) = 1/(1-cosθ)^n · 1/(2ik) · Σ_l a_l · P_l(cosθ)
     f_sum = a_table @ P_mat   # shape (n_theta,)
-    f_amp = f_sum / (2j * omega) / (1.0 - cos_theta)**n_reduction
+    f_amp = f_sum / (2j * k) / (1.0 - cos_theta)**n_reduction
     dsigma = np.abs(f_amp)**2
 
     if verbose:
