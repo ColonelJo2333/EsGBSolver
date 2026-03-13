@@ -53,7 +53,7 @@ def chebyshev_matrix(N):
     c  = np.ones(N + 1); c[0] = 2.; c[N] = 2.
     cs = c * (-1.) ** j
     X  = np.tile(x, (N + 1, 1))
-    D  = np.outer(cs, 1. / cs) / (X - X.T + np.eye(N + 1))
+    D  = np.outer(cs, 1. / cs) / (X.T - X + np.eye(N + 1))
     D -= np.diag(D.sum(axis=1))
     return x, D, D @ D
 
