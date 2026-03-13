@@ -3,6 +3,7 @@
 # EsGB (Einstein-scalar-Gauss-Bonnet) 标量化黑洞  Chebyshev 伪谱 BVP 求解器
 # 公开接口：solve(rh, alpha, beta, phi_h_init, N=13)  →  EsGBSolution
 # ─────────────────────────────────────────────────────────────────────────────
+import warnings
 import numpy as np
 from scipy import linalg
 import re, os
@@ -121,27 +122,35 @@ def _jacobian(F, u, eps=1e-7):
 
 
 # ── Newton 求解器 ─────────────────────────────────────────────────────────────
-def newton_solve(F, u0, tol=1e-9, maxiter=50, verbose=False):
+def newton_solve(F, u0, tol=1e-9, maxiter=50, verbose=False, quiet=True):
+    """quiet=True 时抑制 Ill-conditioned matrix 等 LinAlgWarning。"""
     u = u0.copy()
-    for _ in range(maxiter):
-        R  = F(u);  nr = np.max(np.abs(R))
-        if nr < tol:
-            return u, True, nr
-        J  = _jacobian(F, u)
-        try:
-            du = linalg.solve(J, -R)
-        except Exception:
-            du, *_ = linalg.lstsq(J, -R)
-        lam = 1.
-        for _ in range(12):
-            if np.max(np.abs(F(u + lam * du))) < nr * (1. - 1e-4 * lam):
-                break
-            lam *= .5
-        else:
-            lam = 1e-3
-        u = u + lam * du
-    R = F(u);  nr = np.max(np.abs(R))
-    return u, False, nr
+    ctx = warnings.catch_warnings()
+    ctx.__enter__()
+    if quiet:
+        warnings.filterwarnings('ignore', category=linalg.LinAlgWarning)
+    try:
+        for _ in range(maxiter):
+            R  = F(u);  nr = np.max(np.abs(R))
+            if nr < tol:
+                return u, True, nr
+            J  = _jacobian(F, u)
+            try:
+                du = linalg.solve(J, -R)
+            except Exception:
+                du, *_ = linalg.lstsq(J, -R)
+            lam = 1.
+            for _ in range(12):
+                if np.max(np.abs(F(u + lam * du))) < nr * (1. - 1e-4 * lam):
+                    break
+                lam *= .5
+            else:
+                lam = 1e-3
+            u = u + lam * du
+        R = F(u);  nr = np.max(np.abs(R))
+        return u, False, nr
+    finally:
+        ctx.__exit__(None, None, None)
 
 
 # ── 重心插值 ──────────────────────────────────────────────────────────────────
