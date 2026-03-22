@@ -1,0 +1,11 @@
+CASES = [
+    dict(alpha=0.350, coupling=ExponentialCoupling(beta=2.0), phi_h_init=1.383),
+    dict(alpha=0.350, coupling=ExponentialCoupling(beta=3.0), phi_h_init=1.183),
+    dict(alpha=0.350, coupling=ExponentialCoupling(beta=4.0), phi_h_init=1.054),
+]
+
+CASES = [
+    dict(alpha=0.100, coupling=ExponentialCoupling(beta=3.0), phi_h_init=0.797),
+    dict(alpha=0.350, coupling=ExponentialCoupling(beta=3.0), phi_h_init=1.183),
+    dict(alpha=0.600, coupling=ExponentialCoupling(beta=3.0), phi_h_init=1.301),
+]
